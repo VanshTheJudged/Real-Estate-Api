@@ -7,6 +7,7 @@ import User from "../models/user.js";
 import { nanoid } from "nanoid";
 import jwt from 'jsonwebtoken';
 export const api = (req,res) => {
+    // res.json({ user: req.user });
     res.send(`The current time is ${new Date().toLocaleTimeString()}`);
 } 
 
@@ -91,3 +92,104 @@ export const login = async (req, res) =>{
     //  res.status(500).json({ message: "Email sending failed" });
     // }
 };
+export const forgotPassword = async (req,res) => {
+    try{
+        const {email} = req.body;
+        let user = await User.findOne({email});
+        if(!user){
+            return res.json({
+                error:"If we find your account, you will receive an email from us shortly",
+            })
+        }
+        const password = nanoid(6);
+        user.password = await hashPassword(password);
+        await user.save();
+
+        try{
+            await sendResetEmail(email, newPassword);
+            return res.json({ success: 'Password reset email sent' });
+        }catch(err){
+            console.log("Error sending password reset email => ", err);
+            return res.json({
+                error:
+                "If we find your account, you will receive an email from us shortly",
+            });
+        }
+    }
+    catch(err){
+        console.log("Forgot password error", err);
+        res.json({
+            error: "Something went wrong. Try again.",
+        });
+    }
+}
+
+export const currentUser = async (req, res) => {
+    try{
+        const user = await User.findById(req.user._id);
+        user.password = undefined;
+        res.jon({ user });
+    }catch(err){
+        console.log("Current user error", err);
+        res.json({
+            error: "Something went wrong. Try again.",
+        });
+    }
+};
+
+export const updatePassword = async (req, res) => {
+    try{
+        let {password} = req.body;
+        //trim password
+        password = password ? password.trim() : "";
+        if(!password){
+            return res.json({error: "Password is required"});
+        }
+        if(password.length < 6){
+            return res.json({error: "Password must be at least 6 characters long"});
+        }
+
+        const user = await User.findById(req.user._id);
+        const hashedPassword = await hashPassword(password);
+
+        user.password = hashedPassword;
+        user.save();
+
+        res.json({ok: true});
+    }catch(err){
+        console.log("Update password error", err);
+        res.json({
+            error: "Something went wrong. Try again.",
+        });
+    }
+}
+
+export const updateUsername = async (req, res) =>{
+    try{
+        const {username} = req.body;
+        if(!username || !username.trim()){
+            return res.json({ error: "Username is required"});
+        }
+
+        const trimmedUsername = username.trim();
+
+        const existingUser = await User.findOne({ username: trimmedUsername});
+        if(existingUser){
+            return res.json({
+                error:"Username is already taken. Try another one",
+            });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(req.user._id, {
+            username: trimmedUsername,
+        }, {new: true});
+
+        updatedUser.password = undefined;
+        res.json(updatedUser);
+    }catch(err){
+        console.log(err);
+        res.json({
+            error:"Username is already taken. Try another one",
+        })
+    }
+}

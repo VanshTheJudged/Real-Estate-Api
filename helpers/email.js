@@ -19,3 +19,16 @@ export async function sendWelcomeEmail(userEmail, userName) {
     throw error;
   }
 }
+
+export const sendResetEmail = async (to, newPassword) => {
+  return await resend.emails.send({
+    from: 'RealEstateApi <onboarding@resend.dev>',
+    to,
+    subject: 'Your New Password',
+    html: `
+      <h2>Password Reset</h2>
+      <p>Your new password is: <strong>${newPassword}</strong></p>
+      <p>Please login and change it immediately.</p>
+    `,
+  });
+};
